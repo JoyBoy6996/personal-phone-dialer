@@ -1,5 +1,8 @@
 package org.fossify.phone.activities
 
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.ViewGroup
 import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.content.Context
@@ -55,6 +58,8 @@ class CallActivity : SimpleActivity() {
     private var isMicrophoneOff = false
     private var isCallEnded = false
     private var callContact: CallContact? = null
+    private var fullScreenPhoto: ImageView? = null
+    private var photoScrim: View? = null
     private var proximityWakeLock: PowerManager.WakeLock? = null
     private var screenOnWakeLock: PowerManager.WakeLock? = null
     private var callDuration = 0
@@ -589,24 +594,53 @@ class CallActivity : SimpleActivity() {
                 callerNumber.beGone()
             }
 
-            callerAvatar.apply {
-                if (avatarUri.isNullOrEmpty()) {
-                    val bgColor = getProperPrimaryColor()
-                    setBackgroundResource(R.drawable.circle_background)
-                    setImageResource(R.drawable.ic_person_vector)
-                    setPadding(resources.getDimensionPixelSize(R.dimen.activity_margin))
-                    applyColorFilter(bgColor.getContrastColor())
-                    background.applyColorFilter(bgColor)
-                } else {
-                    if (!isFinishing && !isDestroyed) {
-                        Glide.with(this)
-                            .load(avatarUri)
-                            .apply(RequestOptions.circleCropTransform())
-                            .into(this)
-                    }
-                }
+            if (avatarUri.isNullOrEmpty()) {
+                fullScreenPhoto?.visibility = View.GONE
+                photoScrim?.visibility = View.GONE
+                callerAvatar.visibility = View.VISIBLE
+
+                val bgColor = getProperPrimaryColor()
+                callerAvatar.setBackgroundResource(R.drawable.circle_background)
+                callerAvatar.setImageResource(R.drawable.ic_person_vector)
+                callerAvatar.setPadding(resources.getDimensionPixelSize(R.dimen.activity_margin))
+                callerAvatar.applyColorFilter(bgColor.getContrastColor())
+                callerAvatar.background.applyColorFilter(bgColor)
+            } else if (!isFinishing && !isDestroyed) {
+                ensureBackgroundViews()
+                fullScreenPhoto?.visibility = View.VISIBLE
+                photoScrim?.visibility = View.VISIBLE
+                callerAvatar.visibility = View.GONE
+                callerNameLabel.setTextColor(Color.WHITE)
+                callerNumber.setTextColor(Color.WHITE)
+                Glide.with(this@CallActivity)
+                    .load(avatarUri)
+                    .apply(RequestOptions.centerCropTransform())
+                    .into(fullScreenPhoto!!)
             }
         }
+    }
+
+    private fun ensureBackgroundViews() {
+        if (fullScreenPhoto != null) {
+            return
+        }
+
+        val root = binding.root as ViewGroup
+        val layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        fullScreenPhoto = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+        }
+        photoScrim = View(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0x99000000.toInt(), 0x33000000, 0xCC000000.toInt())
+            )
+        }
+        root.addView(fullScreenPhoto, 0, layoutParams)
+        root.addView(photoScrim, 1, layoutParams)
     }
 
     private fun getContactNameOrNumber(contact: CallContact): String {
